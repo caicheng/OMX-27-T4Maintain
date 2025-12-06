@@ -298,22 +298,20 @@ void handleControlChange(byte channel, byte control, byte value)
 		MM::sendControlChangeHW(control, value, channel);
 	}
 	// change potbank on bank select
-	if (control == 0){
+	if (control == 0)
+	{
 		midiSettings.isBankSelect = true;
 		potSettings.potbank = constrain(value, 0, NUM_CC_BANKS - 1);
 		omxDisp.setDirty();
-	// }else if (midiSettings.isBankSelect && control == 32){
-	// 	midiSettings.isBankSelect = true;
-	}else{
+		// }else if (midiSettings.isBankSelect && control == 32){
+		// 	midiSettings.isBankSelect = true;
+	}
+	else
+	{
 		midiSettings.isBankSelect = false;
 	}
 
 	activeOmxMode->inMidiControlChange(channel, control, value);
-}
-
-void handleClock()
-{
-	sequencer.onExternalClockTick();
 }
 
 // #### Inbound MIDI callbacks
@@ -332,7 +330,32 @@ void OnControlChange(byte channel, byte control, byte value)
 
 void OnClock()
 {
-	handleClock();
+	sequencer.onExternalClockTick();
+}
+
+void OnSeqStart()
+{
+	if (sequencer.clockSource == 1){
+		seqReset();
+		seqStart();
+		omxDisp.displayMessage("Seq Start");
+	}
+}
+
+void OnSeqStop()
+{
+	if (sequencer.clockSource == 1){
+		seqStop();
+		omxDisp.displayMessage("Seq Stop");
+	}
+}
+
+void OnSeqContinue()
+{
+	if (sequencer.clockSource == 1){
+		seqContinue();
+		omxDisp.displayMessage("Seq Continue");
+	}
 }
 
 void OnSysEx(const uint8_t *data, uint16_t length, bool complete)
@@ -460,7 +483,7 @@ bool loadHeader(void)
 
 	cvNoteUtil.triggerMode = constrain(storage->read(EEPROM_HEADER_ADDRESS + 37), 0, 1);
 
-	potSettings.potbank = constrain(storage->read(EEPROM_HEADER_ADDRESS + 38), 0, NUM_CC_BANKS-1);
+	potSettings.potbank = constrain(storage->read(EEPROM_HEADER_ADDRESS + 38), 0, NUM_CC_BANKS - 1);
 
 	return true;
 }
@@ -490,7 +513,7 @@ void savePatterns(void)
 	{
 		return;
 	}
-	Serial.println((String)"nLocalAddress: " + nLocalAddress); // 5784
+	Serial.println((String) "nLocalAddress: " + nLocalAddress); // 5784
 
 #ifdef OMXMODEGRIDS
 	Serial.println("Saving Grids");
@@ -512,20 +535,20 @@ void savePatterns(void)
 
 		nLocalAddress += patternSize;
 	}
-	Serial.println((String)"nLocalAddress: " + nLocalAddress); // 6008
+	Serial.println((String) "nLocalAddress: " + nLocalAddress); // 6008
 #endif
 
 	Serial.println("Saving Euclidean");
 	nLocalAddress = omxModeEuclid.saveToDisk(nLocalAddress, storage);
-	Serial.println((String)"nLocalAddress: " + nLocalAddress); // 7433
+	Serial.println((String) "nLocalAddress: " + nLocalAddress); // 7433
 
 	Serial.println("Saving Chords");
 	nLocalAddress = omxModeChords.saveToDisk(nLocalAddress, storage);
-	Serial.println((String)"nLocalAddress: " + nLocalAddress); // 10505
+	Serial.println((String) "nLocalAddress: " + nLocalAddress); // 10505
 
 	Serial.println("Saving Drums");
 	nLocalAddress = omxModeDrum.saveToDisk(nLocalAddress, storage);
-	Serial.println((String)"nLocalAddress: " + nLocalAddress); // 11545
+	Serial.println((String) "nLocalAddress: " + nLocalAddress); // 11545
 
 	Serial.println("Saving MidiFX");
 	for (uint8_t i = 0; i < NUM_MIDIFX_GROUPS; i++)
@@ -534,7 +557,7 @@ void savePatterns(void)
 		// Serial.println((String)"Saved: " + i);
 		// Serial.println((String)"nLocalAddress: " + nLocalAddress);
 	}
-	Serial.println((String)"nLocalAddress: " + nLocalAddress); // 11585
+	Serial.println((String) "nLocalAddress: " + nLocalAddress); // 11585
 
 	// Starting 11545
 	// MidiFX with nothing 11585
@@ -620,11 +643,11 @@ void loadPatterns(void)
 
 	Serial.print("Loading Chords - ");
 	nLocalAddress = omxModeChords.loadFromDisk(nLocalAddress, storage);
-	Serial.println((String)"nLocalAddress: " + nLocalAddress); // 5988
+	Serial.println((String) "nLocalAddress: " + nLocalAddress); // 5988
 
 	Serial.print("Loading Drums - ");
 	nLocalAddress = omxModeDrum.loadFromDisk(nLocalAddress, storage);
-	Serial.println((String)"nLocalAddress: " + nLocalAddress); // 5988
+	Serial.println((String) "nLocalAddress: " + nLocalAddress); // 5988
 
 	// Serial.println((String)"nLocalAddress: " + nLocalAddress); // 5968
 
@@ -890,7 +913,7 @@ void loop()
 		{
 			// DO LONG PRESS THINGS
 			activeOmxMode->onKeyHeldUpdate(e); // Only the sequencer uses this, could probably be handled in onKeyUpdate() but keyStates are modified before this stuff happens.
-		}									   // END IF HELD
+		} // END IF HELD
 
 	} // END KEYS WHILE
 
@@ -981,6 +1004,9 @@ void setup()
 	usbMIDI.setHandleNoteOn(OnNoteOn);
 	usbMIDI.setHandleControlChange(OnControlChange);
 	usbMIDI.setHandleClock(OnClock);
+	usbMIDI.setHandleStart(OnSeqStart);
+	usbMIDI.setHandleStop(OnSeqStop);
+	usbMIDI.setHandleContinue(OnSeqContinue);
 	usbMIDI.setHandleSystemExclusive(OnSysEx);
 
 	// clksTimer = 0; // TODO - didn't see this used anywhere
@@ -1055,7 +1081,7 @@ void setup()
 	bool bLoaded = loadFromStorage();
 	if (!bLoaded)
 	{
-		Serial.println( "Init load fail. Reinitializing" );
+		Serial.println("Init load fail. Reinitializing");
 
 		// Failed to load due to initialized EEPROM or version mismatch
 		// defaults
@@ -1082,7 +1108,6 @@ void setup()
 
 	// LEDs
 	omxLeds.initSetup();
-
 
 #ifdef RAM_MONITOR
 	reporttime = millis();
