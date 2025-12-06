@@ -335,26 +335,23 @@ void OnClock()
 
 void OnSeqStart()
 {
-	if (sequencer.clockSource == 1){
+	if (sequencer.extControl == 1){
 		seqReset();
 		seqStart();
-		omxDisp.displayMessage("Seq Start");
 	}
 }
 
 void OnSeqStop()
 {
-	if (sequencer.clockSource == 1){
+	if (sequencer.extControl == 1){
 		seqStop();
-		omxDisp.displayMessage("Seq Stop");
 	}
 }
 
 void OnSeqContinue()
 {
-	if (sequencer.clockSource == 1){
+	if (sequencer.extControl == 1){
 		seqContinue();
-		omxDisp.displayMessage("Seq Continue");
 	}
 }
 

@@ -1,4 +1,5 @@
 #include <Adafruit_NeoPixel.h>
+#include <limits>
 
 #include "sequencer.h"
 #include "../config.h"
@@ -132,6 +133,7 @@ SequencerState defaultSequencer()
 	auto state = SequencerState{
 		ticks : 0,
 		clockSource : 0,
+		extControl : 0,
 		playing : 0,
 		paused : 0,
 		stopped : 1,
@@ -224,34 +226,66 @@ void SequencerState::onExternalClockTick()
 		externalClockIntervalIndex = 0;
 	}
 
-	externalClockIntervalSum -= externalClockIntervals[externalClockIntervalIndex];
 	externalClockIntervals[externalClockIntervalIndex] = tickDelta;
-	externalClockIntervalSum += tickDelta;
-
 	if (externalClockIntervalCount < ExternalClockHistorySize)
 	{
 		externalClockIntervalCount++;
 	}
 	externalClockIntervalIndex = (externalClockIntervalIndex + 1) % ExternalClockHistorySize;
 
-	float averageTickDelta = (float)externalClockIntervalSum / externalClockIntervalCount;
+	uint8_t usedSamples = (externalClockIntervalCount < ExternalClockHistorySize) ? externalClockIntervalCount : ExternalClockHistorySize;
+	externalClockIntervalSum = 0;
+	Micros minVal = std::numeric_limits<Micros>::max();
+	Micros maxVal = 0;
+	for (uint8_t i = 0; i < usedSamples; i++)
+	{
+		Micros val = externalClockIntervals[i];
+		externalClockIntervalSum += val;
+		if (val < minVal)
+		{
+			minVal = val;
+		}
+		if (val > maxVal)
+		{
+			maxVal = val;
+		}
+	}
+
+	if (usedSamples > 2)
+	{
+		externalClockIntervalSum -= (minVal + maxVal);
+		usedSamples -= 2;
+	}
+
+	float averageTickDelta = (float)externalClockIntervalSum / usedSamples;
 	float bpm = 60000000.0f / averageTickDelta / 24.0f;
 	if (bpm < 40.0f)
 		bpm = 40.0f;
 	if (bpm > 300.0f)
 		bpm = 300.0f;
 
+	float fillRatio = (externalClockIntervalCount == 0) ? 0.0f : ((float)externalClockIntervalCount / (float)ExternalClockHistorySize);
+	float dynamicThresholdFactor = 1.5f - (0.7f * fillRatio); // 1.5 when empty, down to 0.8 when full
+	if (dynamicThresholdFactor < 0.8f)
+		dynamicThresholdFactor = 0.8f;
+	if (dynamicThresholdFactor > 1.5f)
+		dynamicThresholdFactor = 1.5f;
+
+	float bpmThreshold = clockConfig.clockbpm / 1000.0f;
+
 	clockConfig.newtempo = bpm;
-	if (fabs(clockConfig.newtempo - clockConfig.clockbpm) > (clockConfig.clockbpm / 1000.0f))
+	if (fabs(clockConfig.newtempo - clockConfig.clockbpm) > (bpmThreshold * dynamicThresholdFactor))
 	{
 		tempoUpdateStreak++;
 		if (tempoUpdateStreak >= (clockConfig.clockbpm > 120 ? 3 : 2))
 		{
 			tempoUpdateStreak = 0;
+			// if((int)round(clockConfig.newtempo) != (int)round(clockConfig.clockbpm))
+				// omxDisp.displayMessagef("BPM: %d", (int)round(clockConfig.newtempo));
 			// SET TEMPO HERE
 			clockConfig.clockbpm = clockConfig.newtempo;
 			omxUtil.resetClocks();
-			omxDisp.displayMessagef("BPM: %.1f", clockConfig.clockbpm);
+			omxDisp.setDirty();
 		}
 	}
 	else

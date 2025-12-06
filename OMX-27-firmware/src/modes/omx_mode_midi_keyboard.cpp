@@ -486,6 +486,10 @@ void OmxModeMidiKeyboard::onEncoderChanged(Encoder::Update enc)
 		{
 			clockConfig.send_always = constrain(clockConfig.send_always + amt, 0, 1);
 		}
+		if (selParam == 3)
+		{
+			sequencer.extControl = constrain(sequencer.extControl + amt, 0, 1);
+		}
 	}
 
 
@@ -1244,6 +1248,7 @@ void OmxModeMidiKeyboard::onDisplayUpdate()
 
 					omxDisp.setLegend(0,"CLKS", sequencer.clockSource ? "Ext" : "Int");
 					omxDisp.setLegend(1,"SEND", clockConfig.send_always ? "ON" : "OFF"); // Always send clock or not
+					omxDisp.setLegend(2,"SCTL", sequencer.extControl ? "Ext" : "Int");
 				}
 				omxDisp.dispGenericMode2(params.getNumPages(), params.getSelPage(), params.getSelParam(), encoderSelect && !midiSettings.midiAUX);
 			}

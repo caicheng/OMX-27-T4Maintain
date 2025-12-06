@@ -99,6 +99,7 @@ class SequencerState
 public:
 	int ticks;			// A tick of the clock
 	bool clockSource;	// Internal clock (0), external clock (1)
+	bool extControl;	// Internal ctrl (0), external ctrl (1)
 	bool playing;		// Are we playing?
 	bool paused;		// Are we paused?
 	bool stopped;		// Are we stopped? (Must init to 1)
@@ -110,7 +111,7 @@ public:
 	int seq_velocity;
 	int seq_acc_velocity;
 	Micros lastExternalClockTickTime;
-	static const uint8_t ExternalClockHistorySize = 120;
+	static const uint8_t ExternalClockHistorySize = 60;
 	Micros externalClockIntervals[ExternalClockHistorySize];
 	uint8_t externalClockIntervalCount;
 	uint8_t externalClockIntervalIndex;
