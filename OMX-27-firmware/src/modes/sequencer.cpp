@@ -142,6 +142,13 @@ SequencerState defaultSequencer()
 		stepCV : 0,
 		seq_velocity : 100,
 		seq_acc_velocity : 127,
+		lastExternalClockTickTime : 0,
+		externalClockIntervals : {0},
+		externalClockIntervalCount : 0,
+		externalClockIntervalIndex : 0,
+		externalClockIntervalSum : 0,
+		externalClockJumpCount : 0,
+		tempoUpdateStreak : 0,
 		lastSeqPos : {0, 0, 0, 0, 0, 0, 0, 0},					  // ZERO BASED
 		seqPos : {0, 0, 0, 0, 0, 0, 0, 0},						  // ZERO BASED
 		patternDefaultNoteMap : {36, 38, 37, 39, 42, 46, 49, 51}, // default to GM Drum Map for now
@@ -175,18 +182,81 @@ void SequencerState::onExternalClockTick()
 		return;
 
 	Micros now = micros();
-	float bpm = 60000000.0f / (now - this->lastExternalClockTickTime ) / 24;
-	lastExternalClockTickTime = now;
-	if (bpm < 40 || bpm > 300)
+
+	if (lastExternalClockTickTime == 0)
+	{
+		lastExternalClockTickTime = now;
 		return;
+	}
+
+	Micros tickDelta = now - lastExternalClockTickTime;
+	lastExternalClockTickTime = now;
+
+	float instantBpm = 60000000.0f / (float)tickDelta / 24.0f;
+	bool resetHistory = false;
+	if (clockConfig.clockbpm > 0.0f)
+	{
+		float bpmDelta = fabs(instantBpm - clockConfig.clockbpm) / clockConfig.clockbpm;
+		if (bpmDelta >= 0.10f)
+		{
+			externalClockJumpCount++;
+			if (externalClockJumpCount >= 3)
+			{
+				resetHistory = true;
+				externalClockJumpCount = 0;
+			}
+		}
+		else
+		{
+			externalClockJumpCount = 0;
+		}
+	}
+
+	if (resetHistory)
+	{
+		// omxDisp.displayMessage("Clock Jump Detected");
+		for (uint8_t i = 0; i < ExternalClockHistorySize; i++)
+		{
+			externalClockIntervals[i] = 0;
+		}
+		externalClockIntervalSum = 0;
+		externalClockIntervalCount = 0;
+		externalClockIntervalIndex = 0;
+	}
+
+	externalClockIntervalSum -= externalClockIntervals[externalClockIntervalIndex];
+	externalClockIntervals[externalClockIntervalIndex] = tickDelta;
+	externalClockIntervalSum += tickDelta;
+
+	if (externalClockIntervalCount < ExternalClockHistorySize)
+	{
+		externalClockIntervalCount++;
+	}
+	externalClockIntervalIndex = (externalClockIntervalIndex + 1) % ExternalClockHistorySize;
+
+	float averageTickDelta = (float)externalClockIntervalSum / externalClockIntervalCount;
+	float bpm = 60000000.0f / averageTickDelta / 24.0f;
+	if (bpm < 40.0f)
+		bpm = 40.0f;
+	if (bpm > 300.0f)
+		bpm = 300.0f;
 
 	clockConfig.newtempo = bpm;
-	if (fabs(clockConfig.newtempo - clockConfig.clockbpm) > 0.1f)
+	if (fabs(clockConfig.newtempo - clockConfig.clockbpm) > (clockConfig.clockbpm / 1000.0f))
 	{
-		// SET TEMPO HERE
-		clockConfig.clockbpm = clockConfig.newtempo;
-		omxUtil.resetClocks();
-		omxDisp.setDirty();
+		tempoUpdateStreak++;
+		if (tempoUpdateStreak >= (clockConfig.clockbpm > 120 ? 3 : 2))
+		{
+			tempoUpdateStreak = 0;
+			// SET TEMPO HERE
+			clockConfig.clockbpm = clockConfig.newtempo + (clockConfig.clockbpm > 135 ? 0.02f : 0.01f); // delta to better bpm view
+			omxUtil.resetClocks();
+			omxDisp.displayMessagef("BPM: %.1f", clockConfig.clockbpm);
+		}
+	}
+	else
+	{
+		tempoUpdateStreak = 0;
 	}
 }
 

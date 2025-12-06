@@ -110,6 +110,13 @@ public:
 	int seq_velocity;
 	int seq_acc_velocity;
 	Micros lastExternalClockTickTime;
+	static const uint8_t ExternalClockHistorySize = 120;
+	Micros externalClockIntervals[ExternalClockHistorySize];
+	uint8_t externalClockIntervalCount;
+	uint8_t externalClockIntervalIndex;
+	Micros externalClockIntervalSum;
+	uint8_t externalClockJumpCount;
+	uint8_t tempoUpdateStreak;
 
 	// TODO: move into Pattern?
 	int lastSeqPos[NUM_SEQ_PATTERNS]; // What position in the sequence are we in? ZERO BASED
