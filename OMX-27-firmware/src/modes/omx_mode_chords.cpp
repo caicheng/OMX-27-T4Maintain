@@ -442,10 +442,13 @@ void OmxModeChords::onPotChanged(int potIndex, int prevValue, int newValue, int 
 	// Serial.println("onPotChanged: " + String(potIndex));
 	if (chordEditMode_ == false && mode_ == CHRDMODE_MANSTRUM)
 	{
-		if (analogDelta < 3)
-		{
+#if T4
+		if (analogDelta < 1)
 			return;
-		}
+#else
+		if (analogDelta < 3)
+			return;
+#endif
 
 		// Serial.println("strum");
 

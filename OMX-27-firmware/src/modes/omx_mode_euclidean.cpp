@@ -352,9 +352,13 @@ void OmxModeEuclidean::onPotChanged(int potIndex, int prevValue, int newValue, i
 	if (paramMode_ == PARAMMODE_EDIT)
 	{
 		// Serial.println("Edit Mode");
-
+#if T4
+		if (analogDelta < 1)
+			return;
+#else
 		if (analogDelta < 3)
 			return;
+#endif
 
 		if (potIndex == 0)
 		{
