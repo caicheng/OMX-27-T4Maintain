@@ -311,6 +311,11 @@ void handleControlChange(byte channel, byte control, byte value)
 	activeOmxMode->inMidiControlChange(channel, control, value);
 }
 
+void handleClock()
+{
+	sequencer.onExternalClockTick();
+}
+
 // #### Inbound MIDI callbacks
 void OnNoteOn(byte channel, byte note, byte velocity)
 {
@@ -323,6 +328,11 @@ void OnNoteOff(byte channel, byte note, byte velocity)
 void OnControlChange(byte channel, byte control, byte value)
 {
 	handleControlChange(channel, control, value);
+}
+
+void OnClock()
+{
+	handleClock();
 }
 
 void OnSysEx(const uint8_t *data, uint16_t length, bool complete)
@@ -970,6 +980,7 @@ void setup()
 	usbMIDI.setHandleNoteOff(OnNoteOff);
 	usbMIDI.setHandleNoteOn(OnNoteOn);
 	usbMIDI.setHandleControlChange(OnControlChange);
+	usbMIDI.setHandleClock(OnClock);
 	usbMIDI.setHandleSystemExclusive(OnSysEx);
 
 	// clksTimer = 0; // TODO - didn't see this used anywhere

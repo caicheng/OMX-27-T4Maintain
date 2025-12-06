@@ -169,6 +169,27 @@ SequencerState defaultSequencer()
 	return state;
 }
 
+void SequencerState::onExternalClockTick()
+{
+	if (!clockSource)
+		return;
+
+	Micros now = micros();
+	float bpm = 60000000.0f / (now - this->lastExternalClockTickTime ) / 24;
+	lastExternalClockTickTime = now;
+	if (bpm < 40 || bpm > 300)
+		return;
+
+	clockConfig.newtempo = bpm;
+	if (fabs(clockConfig.newtempo - clockConfig.clockbpm) > 0.1f)
+	{
+		// SET TEMPO HERE
+		clockConfig.clockbpm = clockConfig.newtempo;
+		omxUtil.resetClocks();
+		omxDisp.setDirty();
+	}
+}
+
 int serializedPatternSize(bool eeprom)
 {
 	int total = sizeof(Pattern);
@@ -276,7 +297,7 @@ void auto_reset(int p)
 		(pattern->autoreset && (pattern->autoresetstep == 0) && (sequencer.seqPos[p] >= pattern->rndstep)) ||
 		(pattern->reverse && (sequencer.seqPos[p] < 0)) ||									   // normal reverse reset
 		(pattern->reverse && pattern->autoreset && (sequencer.seqPos[p] < pattern->startstep)) // ||
-		//(settings->reverse && settings->autoreset && (settings->autoresetstep == 0 ) && (seqPos[p] < settings->rndstep))
+																							   //(settings->reverse && settings->autoreset && (settings->autoresetstep == 0 ) && (seqPos[p] < settings->rndstep))
 	)
 	{
 
@@ -674,10 +695,10 @@ void playNote(int patternNum)
 			if (pattern->swing < 99)
 			{
 				seqConfig.noteon_micros = micros() + ((clockConfig.ppqInterval * multValues[pattern->clockDivMultP]) / (PPQ / 24) * pattern->swing); // full range swing
-				// 	Serial.println((clockConfig.ppqInterval * multValues[settings->clockDivMultP])/(PPQ / 24) * settings->swing);
-				// } else if ((settings->swing > 50) && (settings->swing < 99)){
-				//    noteon_micros = micros() + ((step_micros * multValues[settings->clockDivMultP]) * ((settings->swing - 50)* .01) ); // late swing
-				//    Serial.println(((step_micros * multValues[settings->clockDivMultP]) * ((settings->swing - 50)* .01) ));
+																																					 // 	Serial.println((clockConfig.ppqInterval * multValues[settings->clockDivMultP])/(PPQ / 24) * settings->swing);
+																																					 // } else if ((settings->swing > 50) && (settings->swing < 99)){
+																																					 //    noteon_micros = micros() + ((step_micros * multValues[settings->clockDivMultP]) * ((settings->swing - 50)* .01) ); // late swing
+																																					 //    Serial.println(((step_micros * multValues[settings->clockDivMultP]) * ((settings->swing - 50)* .01) ));
 			}
 			else if (pattern->swing == 99)
 			{								 // random drunken swing
@@ -775,8 +796,8 @@ void seqReset()
 				sequencer.lastSeqPos[k] = sequencer.seqPos[k];
 			}
 		}
-// 		omxUtil.stopClocks();
-// 		omxUtil.startClocks();
+		// 		omxUtil.stopClocks();
+		// 		omxUtil.startClocks();
 		// MM::stopClock();
 		// MM::startClock();
 		sequencer.seqResetFlag = false;
@@ -797,10 +818,12 @@ void seqStart()
 	{
 		omxUtil.resumeClocks();
 		// MM::continueClock();
-// 	} else if (sequencer.seqPos[sequencer.playingPattern]==0) {
-	} else  {
+		// 	} else if (sequencer.seqPos[sequencer.playingPattern]==0) {
+	}
+	else
+	{
 		omxUtil.startClocks();
-// 		MM::startClock();
+		// 		MM::startClock();
 	}
 }
 

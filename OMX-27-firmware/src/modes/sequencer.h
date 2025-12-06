@@ -109,6 +109,7 @@ public:
 	word stepCV;
 	int seq_velocity;
 	int seq_acc_velocity;
+	Micros lastExternalClockTickTime;
 
 	// TODO: move into Pattern?
 	int lastSeqPos[NUM_SEQ_PATTERNS]; // What position in the sequence are we in? ZERO BASED
@@ -146,6 +147,8 @@ public:
 	{
 		return this->patterns[pattern].channel + 1;
 	}
+
+	void onExternalClockTick();
 };
 
 extern uint8_t lastNote[NUM_SEQ_PATTERNS][NUM_STEPS];
