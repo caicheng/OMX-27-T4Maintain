@@ -249,7 +249,7 @@ void SequencerState::onExternalClockTick()
 		{
 			tempoUpdateStreak = 0;
 			// SET TEMPO HERE
-			clockConfig.clockbpm = clockConfig.newtempo + (clockConfig.clockbpm > 135 ? 0.02f : 0.01f); // delta to better bpm view
+			clockConfig.clockbpm = clockConfig.newtempo;
 			omxUtil.resetClocks();
 			omxDisp.displayMessagef("BPM: %.1f", clockConfig.clockbpm);
 		}

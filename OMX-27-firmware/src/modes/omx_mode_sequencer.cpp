@@ -1416,7 +1416,7 @@ void OmxModeSequencer::onDisplayUpdate()
                     omxDisp.legendVals[1] = (int)midiSettings.transpose;
                     omxDisp.legendVals[2] = (int)sequencer.getCurrentPattern()->swing; //(int)swing;
                     // legendVals[2] =  swing_values[sequencer.getCurrentPattern()->swing];
-                    omxDisp.legendVals[3] = (int)clockConfig.clockbpm;
+                    omxDisp.legendVals[3] = (int)round(clockConfig.clockbpm);
                 }
                 else if (seqParams.getSelPage() == 1) // SUBMODE_SEQ2
                 {

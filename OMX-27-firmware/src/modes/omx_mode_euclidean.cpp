@@ -1324,7 +1324,7 @@ void OmxModeEuclidean::setupPageLegends()
 		omxDisp.legendString[1] = String(activeEuclid->getClockDivMult());
 		omxDisp.useLegendString[2] = true;
 		omxDisp.legendString[2] = String(euclids[0].getPolyRClockDivMult());
-		omxDisp.legendVals[3] = (int)clockConfig.clockbpm;
+		omxDisp.legendVals[3] = (int)round(clockConfig.clockbpm);
 	}
 	break;
 	default:

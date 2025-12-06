@@ -1330,7 +1330,7 @@ void OmxModeGrids::setupPageLegends()
 			omxDisp.legendVals[0] = grids_.grids_notes[lockedInst_];
 			omxDisp.legendVals[1] = grids_.getNoteLength(lockedInst_);
 			omxDisp.legendVals[2] = grids_.getMidiChan(lockedInst_);
-			omxDisp.legendVals[3] = (int)clockConfig.clockbpm;
+			omxDisp.legendVals[3] = (int)round(clockConfig.clockbpm);
 		}
 		else
 		{
@@ -1341,7 +1341,7 @@ void OmxModeGrids::setupPageLegends()
 			omxDisp.legendVals[0] = -127;
 			omxDisp.legendVals[1] = -127;
 			omxDisp.legendVals[2] = -127;
-			omxDisp.legendVals[3] = (int)clockConfig.clockbpm;
+			omxDisp.legendVals[3] = (int)round(clockConfig.clockbpm);
 			omxDisp.legendText[0] = "";
 			omxDisp.legendText[1] = "";
 			omxDisp.legendText[2] = "";

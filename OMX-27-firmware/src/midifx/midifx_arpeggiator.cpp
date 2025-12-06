@@ -2527,7 +2527,7 @@ namespace midifx
             omxDisp.setLegend(0, "RATE", "1/" + String(kArpRates[rateIndex_]));
             omxDisp.setLegend(1, "RANG", octaveRange_ + 1);
             omxDisp.setLegend(2, "GATE", gate);
-            omxDisp.setLegend(3, "BPM", (int)clockConfig.clockbpm);
+            omxDisp.setLegend(3, "BPM", (int)round(clockConfig.clockbpm));
         }
         else if (page == ARPPAGE_3) // Transpose Distance
         {
