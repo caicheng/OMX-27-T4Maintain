@@ -18,7 +18,7 @@
 // OMX_VERSION = 1.13.8
 const int MAJOR_VERSION = 1;
 const int MINOR_VERSION = 13;
-const int POINT_VERSION = 8;
+const int POINT_VERSION = 10;
 
 // 1.13.2 - Adds CV Trigger modes for legato and regtrig
 // 1.13.3 - Bugfix for CV Trigger modes

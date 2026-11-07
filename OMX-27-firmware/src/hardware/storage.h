@@ -110,3 +110,6 @@ public:
 private:
 	Adafruit_FRAM_I2C fram;
 };
+
+// global storage instance: defined in the .ino, assigned by Storage::initStorage() in setup()
+extern Storage *storage;

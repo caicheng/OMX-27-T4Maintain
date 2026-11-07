@@ -8,6 +8,7 @@
 #include "../midi/midi.h"
 #include "../utils/music_scales.h"
 #include "../midi/noteoffs.h"
+#include "../hardware/storage.h"
 #include "sequencer.h"
 
 // const int kSelMidiFXOffColor = SALMON;
@@ -24,7 +25,6 @@ enum MIKeyModePage {
     MIPAGE_SCALES,
     MIPAGE_CFG,
 	MIPAGE_CLOCK_SOURCE,
-	MIPAGE_CLOCK_SEND,
 	MIPAGE_VERSION
 };
 
@@ -37,7 +37,8 @@ OmxModeMidiKeyboard::OmxModeMidiKeyboard()
 	params.addPage(4); // PotBank, Thru, Macro, Macro Channel
 	params.addPage(4); // Root, Scale, Lock Scale Notes, Group notes. 
 	params.addPage(4); // Pot CC CFG
-	params.addPage(4); // MIPAGE_VERSION
+	params.addPage(4); // MIPAGE_CLOCK_SOURCE (CLKS / SEND / SCTL - all three clock settings live here)
+	params.addPage(4); // MIPAGE_VERSION (storage line: FRAM / EEP / blank)
 
 	// subModeMidiFx.setNoteOutputFunc(&OmxModeMidiKeyboard::onNotePostFXForwarder, this);
 
@@ -1185,7 +1186,24 @@ void OmxModeMidiKeyboard::onDisplayUpdate()
 				if (params.getSelPage() == MIPAGE_VERSION)
 				{
 					tempString = "v" + String(MAJOR_VERSION) + "." + String(MINOR_VERSION) + "." + String(POINT_VERSION);
-					omxDisp.dispGenericModeLabel(tempString.c_str(), params.getNumPages(), params.getSelPage());
+
+					// storage mode line: FRAM / EEP; an EEPROM whose tail marker byte
+					// fails its check shows nothing (its contents are not trustworthy)
+					const char *storageLabel = "";
+
+					if (storage != nullptr)
+					{
+						if (!storage->isEeprom())
+						{
+							storageLabel = "FRAM";
+						}
+						else if ((storage->read(EP_MARKER_ADDRESS) & EP_MARKER_MASK) == EP_MARKER_NIBBLE)
+						{
+							storageLabel = "EEP";
+						}
+					}
+
+					omxDisp.dispGenericModeLabelDoubleLine(tempString.c_str(), storageLabel, params.getNumPages(), params.getSelPage());
 					return;
 				}
 
