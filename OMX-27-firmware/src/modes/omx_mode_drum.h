@@ -82,8 +82,8 @@ public:
 
 	void SetScale(MusicScales *scale);
 
-	int saveToDisk(int startingAddress, Storage *storage);
-	int loadFromDisk(int startingAddress, Storage *storage);
+	int saveToDisk(int startingAddress, Storage *storage, uint8_t kitStart = 0, uint8_t count = NUM_DRUM_KITS);
+	int loadFromDisk(int startingAddress, Storage *storage, uint8_t kitStart = 0, uint8_t count = NUM_DRUM_KITS);
 private:
 	static const uint8_t NUM_DRUM_KITS = 8;
 	SubModePreset presetManager;

@@ -26,8 +26,10 @@ Adafruit_FRAM_I2C fram = Adafruit_FRAM_I2C();
 Adafruit_SSD1306 display = Adafruit_SSD1306(DISPLAY_WIDTH, DISPLAY_HEIGHT, &Wire, OLED_RST, CLKDURING, CLKAFTER);
 
 const int framCapacity = 32000;
-const int eepromCapacity = 2048;	// 2048; 3.2
-// const int eepromCapacity = 1080; 	// 1080; 4.0
+#include <avr/eeprom.h>
+// EEPROM size follows the core setting automatically:
+// T3.2: 2048; T4.0: 1080 unpatched, 3825 with the E2END patch (0xEF0)
+const int eepromCapacity = E2END + 1;
 
 bool usingFram = false;
 

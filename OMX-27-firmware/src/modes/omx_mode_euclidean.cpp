@@ -1504,14 +1504,17 @@ bool OmxModeEuclidean::isSubmodeEnabled()
 //     grids_.setSnapShot(patternIndex, snapShot);
 // }
 
-int OmxModeEuclidean::saveToDisk(int startingAddress, Storage *storage)
+int OmxModeEuclidean::saveToDisk(int startingAddress, Storage *storage, uint8_t slotStart, uint8_t count, bool writeCursor)
 {
-	storage->write(startingAddress, selectedSave_);
-	startingAddress++;
+	if (writeCursor)
+	{
+		storage->write(startingAddress, selectedSave_);
+		startingAddress++;
+	}
 
 	int saveSize = sizeof(EuclidPatternSave);
 
-	for (uint8_t i = 0; i < kNumSaves; i++)
+	for (uint8_t i = slotStart; i < slotStart + count; i++)
 	{
 		auto saveBytesPtr = (byte *)(&saveSlots_[i]);
 		for (int j = 0; j < saveSize; j++)
@@ -1525,14 +1528,24 @@ int OmxModeEuclidean::saveToDisk(int startingAddress, Storage *storage)
 	return startingAddress;
 }
 
-int OmxModeEuclidean::loadFromDisk(int startingAddress, Storage *storage)
+int OmxModeEuclidean::loadFromDisk(int startingAddress, Storage *storage, uint8_t slotStart, uint8_t count, bool readCursor)
 {
-	selectedSave_ = storage->read(startingAddress);
-	startingAddress++;
+	if (readCursor)
+	{
+		// clamp: a FRAM-era cursor (slot > 3) or a garbage byte must not
+		// index outside the saved window
+		selectedSave_ = constrain(storage->read(startingAddress), slotStart, slotStart + count - 1);
+		startingAddress++;
+	}
+	else
+	{
+		// EEPROM (no FRAM) layout stores a single slot without a cursor byte
+		selectedSave_ = slotStart;
+	}
 
 	int saveSize = sizeof(EuclidPatternSave);
 
-	for (uint8_t i = 0; i < kNumSaves; i++)
+	for (uint8_t i = slotStart; i < slotStart + count; i++)
 	{
 		auto pattern = EuclidPatternSave{};
 		auto current = (byte *)&pattern;

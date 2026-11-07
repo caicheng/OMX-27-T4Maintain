@@ -78,6 +78,70 @@ extern const uint8_t EEPROM_VERSION;
 #define EEPROM_HEADER_SIZE 40
 #define EEPROM_PATTERN_ADDRESS 64
 
+// ---- EEPROM (no FRAM) compact layout ----
+// ONLY used in the isEeprom() storage branch. FRAM layout is unchanged.
+// Target: 3825-byte EEPROM (T4.0 core E2END patch applied by
+// tools/patch_e2end.py: 0x437 -> 0xEF0, the official T4.0 maximum).
+// T3.2 native EEPROM is 2048B: too small for this layout, pattern
+// persistence is skipped there at runtime (header still works).
+// Chain order mirrors the FRAM layout: Seq, Grids, Euclid, Chords,
+// Drums, MidiFX. Sizes: hand-computed from struct sizes (EP_*_SIZE),
+// guarded by the static_assert at the bottom.
+//   0..38      header (39B)
+//   39..63     gap (25B, mirrors FRAM: Seq starts at EEPROM_PATTERN_ADDRESS=64)
+//   64..2055   6x Seq patterns (332B compact form each)
+//   2056..2167 4x Grids snapshots (28B each)
+//   2168..2459 4x Euclid save slots (73B each, NO cursor byte: it is packed
+//              into the tail byte at 3824)
+//   2460..3099 2x Chords presets (16 keys x 20B each)
+//   3100..3619 4x Drum kits (130B each)
+//   3620..3651 MidiFX type table: 4 groups x 8 slots (1B each)
+//   3652..3823 ArpSave quota: first 4 ARP slots in chain order (43B each);
+//              further ARP slots save their type byte only (params at defaults)
+//   3824       tail byte (packed):
+//              lo nibble = layout marker 0xA, written last by savePatterns(),
+//                verified every boot. A missing marker on an EEPROM that holds
+//                a valid header means the 3825B region is not real (e.g. the
+//                core E2END patch was rolled back by a platform update):
+//                writes to high addresses get silently swallowed by the core
+//                (reads return 0xFF, whose lo nibble 0xF always fails).
+//              hi nibble = Euclid selected slot (0..15): the FRAM-era cursor
+//                byte packed into the marker's spare bits; clamped to 0..3 on
+//                load, only read after the marker check passes.
+#define EP_HEADER_END 39
+#define EP_SEQ_START 64 // == EEPROM_PATTERN_ADDRESS (FRAM chain start)
+#define EP_SEQ_COUNT 6
+#define EP_SEQ_SIZE 332
+#define EP_GRIDS_START 2056
+#define EP_GRIDS_COUNT 4
+#define EP_GRIDS_SIZE 28
+#define EP_EUCLID_START 2168
+#define EP_EUCLID_COUNT 4
+#define EP_EUCLID_SIZE 73
+#define EP_CHORDS_START 2460
+#define EP_CHORDS_COUNT 2
+#define EP_DRUMS_START 3100
+#define EP_DRUMS_COUNT 4
+#define EP_DRUMS_SIZE 130
+#define EP_MIDIFX_TYPES_START 3620
+#define EP_MIDIFX_GROUPS 4 // groups 0..3 saved; group 4 is FRAM-only
+#define EP_MIDIFX_PARAMS_START 3652
+#define EP_ARP_SAVE_SIZE 43
+#define EP_MIDIFX_ARP_QUOTA 4
+#define EP_MARKER_ADDRESS 3824
+#define EP_MARKER_NIBBLE 0x0A
+#define EP_MARKER_MASK 0x0F
+#define EP_CHAIN_END 3825 // end-exclusive == E2END + 1 after the patch
+
+#include <avr/eeprom.h> // E2END
+
+// layout fits exactly on a patched T4.0; an unpatched T4 (E2END = 0x437)
+// must not build with this layout (the patch script runs pre-build)
+#ifdef ARDUINO_TEENSY40
+static_assert(EP_CHAIN_END <= (uint32_t)(E2END + 1),
+              "EEPROM layout exceeds T4.0 capacity: E2END patch not applied (tools/patch_e2end.py)");
+#endif
+
 #define TRACKED_CV_SIZE 16 //
 
 // next address 1104 (was 1096 before clock)

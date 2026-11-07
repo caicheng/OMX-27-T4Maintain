@@ -1381,11 +1381,11 @@ void OmxModeDrum::onPendingNoteOff(int note, int channel)
 	}
 }
 
-int OmxModeDrum::saveToDisk(int startingAddress, Storage *storage)
+int OmxModeDrum::saveToDisk(int startingAddress, Storage *storage, uint8_t kitStart, uint8_t count)
 {
 	int saveSize = sizeof(DrumKit);
 
-	for (uint8_t saveIndex = 0; saveIndex < NUM_DRUM_KITS; saveIndex++)
+	for (uint8_t saveIndex = kitStart; saveIndex < kitStart + count; saveIndex++)
 	{
         auto saveBytesPtr = (byte *)(&drumKits[saveIndex]);
         for (int j = 0; j < saveSize; j++)
@@ -1399,7 +1399,7 @@ int OmxModeDrum::saveToDisk(int startingAddress, Storage *storage)
 	return startingAddress;
 }
 
-int OmxModeDrum::loadFromDisk(int startingAddress, Storage *storage)
+int OmxModeDrum::loadFromDisk(int startingAddress, Storage *storage, uint8_t kitStart, uint8_t count)
 {
 	int saveSize = sizeof(DrumKit); // 5 * 26 = 130
 
@@ -1407,7 +1407,7 @@ int OmxModeDrum::loadFromDisk(int startingAddress, Storage *storage)
 
 	// Serial.println((String)"DrumKit Size: " + saveSize + " drumKeySize: " + drumKeySize); // 5 - 130 - 1040 bytes
 
-    for (uint8_t saveIndex = 0; saveIndex < NUM_DRUM_KITS; saveIndex++)
+    for (uint8_t saveIndex = kitStart; saveIndex < kitStart + count; saveIndex++)
     {
         // auto drumKit = DrumKit{};
         // auto current = (byte *)&drumKit;

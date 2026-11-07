@@ -50,8 +50,13 @@ public:
 	static const u_int8_t kNumSaves = 16;
 	// static const u_int8_t kNumMidiFXGroups = 5;
 
-	int saveToDisk(int startingAddress, Storage *storage);
-	int loadFromDisk(int startingAddress, Storage *storage);
+	int saveToDisk(int startingAddress, Storage *storage, uint8_t slotStart = 0, uint8_t count = kNumSaves, bool writeCursor = true);
+	int loadFromDisk(int startingAddress, Storage *storage, uint8_t slotStart = 0, uint8_t count = kNumSaves, bool readCursor = true);
+
+	// EEPROM (no FRAM) layout: the working slot is packed into the tail byte,
+	// the .ino restores it after loadFromDisk()
+	uint8_t getSelectedSave() { return selectedSave_; }
+	void loadActivePattern(uint8_t pattIndex);
 
 	// static int serializedPatternSize(bool eeprom);
 	// static inline int getNumPatterns() { return 8; }
@@ -70,7 +75,6 @@ private:
 	void onKeyUpdateChanLock(OMXKeypadEvent e);
 
 	void saveActivePattern(uint8_t pattIndex, bool showMsg = true);
-	void loadActivePattern(uint8_t pattIndex);
 
 	void toggleMute(uint8_t euclidIndex);
 	void selectEuclid(uint8_t euclidIndex);

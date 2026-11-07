@@ -1627,3 +1627,64 @@ int SubModeMidiFxGroup::loadFromDisk(int startingAddress, Storage *storage)
 
 	return startingAddress;
 }
+
+uint8_t SubModeMidiFxGroup::getMidiFXType(uint8_t slot)
+{
+	return midifxTypes_[slot];
+}
+
+// EEPROM quota: native payload of one slot ONLY (no type byte - the type
+// table at EP_MIDIFX_TYPES_START carries the slot types)
+int SubModeMidiFxGroup::saveSlotPayload(uint8_t slot, int startingAddress, Storage *storage)
+{
+	MidiFXInterface *mFX = getMidiFX(slot);
+
+	if (mFX == nullptr)
+	{
+		return startingAddress; // slot empty: nothing to write
+	}
+
+	return mFX->saveToDisk(startingAddress, storage);
+}
+
+// EEPROM quota: load one slot's native payload (the caller restores the slot
+// type first via loadTypesOnly, so the FX object is already in place)
+int SubModeMidiFxGroup::loadSlotPayload(uint8_t slot, int startingAddress, Storage *storage)
+{
+	MidiFXInterface *mFX = getMidiFX(slot);
+
+	if (mFX == nullptr)
+	{
+		return startingAddress;
+	}
+
+	return mFX->loadFromDisk(startingAddress, storage);
+}
+
+// var region fallback: the group's 8 slot type bytes, FX params left at defaults
+int SubModeMidiFxGroup::saveTypesOnly(int startingAddress, Storage *storage)
+{
+	for (uint8_t i = 0; i < NUM_MIDIFX_SLOTS; i++)
+	{
+		storage->write(startingAddress + i, midifxTypes_[i]);
+	}
+
+	return startingAddress + NUM_MIDIFX_SLOTS;
+}
+
+int SubModeMidiFxGroup::loadTypesOnly(int startingAddress, Storage *storage)
+{
+	for (uint8_t i = 0; i < NUM_MIDIFX_SLOTS; i++)
+	{
+		uint8_t mfxType = storage->read(startingAddress + i);
+
+		if (mfxType >= MIDIFX_COUNT)
+		{
+			mfxType = MIDIFX_NONE;
+		}
+
+		changeMidiFXType(i, mfxType, true);
+	}
+
+	return startingAddress + NUM_MIDIFX_SLOTS;
+}

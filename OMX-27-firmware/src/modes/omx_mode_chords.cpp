@@ -3516,11 +3516,11 @@ int OmxModeChords::TransposeNote(int note, int8_t semitones)
 	return newNote;
 }
 
-int OmxModeChords::saveToDisk(int startingAddress, Storage *storage)
+int OmxModeChords::saveToDisk(int startingAddress, Storage *storage, uint8_t presetStart, uint8_t count)
 {
 	int saveSize = sizeof(ChordSettings);
 
-	for (uint8_t saveIndex = 0; saveIndex < NUM_CHORD_SAVES; saveIndex++)
+	for (uint8_t saveIndex = presetStart; saveIndex < presetStart + count; saveIndex++)
 	{
 		for (uint8_t i = 0; i < 16; i++)
 		{
@@ -3537,11 +3537,11 @@ int OmxModeChords::saveToDisk(int startingAddress, Storage *storage)
 	return startingAddress;
 }
 
-int OmxModeChords::loadFromDisk(int startingAddress, Storage *storage)
+int OmxModeChords::loadFromDisk(int startingAddress, Storage *storage, uint8_t presetStart, uint8_t count)
 {
 	int saveSize = sizeof(ChordSettings);
 
-	for (uint8_t saveIndex = 0; saveIndex < NUM_CHORD_SAVES; saveIndex++)
+	for (uint8_t saveIndex = presetStart; saveIndex < presetStart + count; saveIndex++)
 	{
 		for (uint8_t i = 0; i < 16; i++)
 		{

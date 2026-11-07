@@ -25,6 +25,7 @@
 #include "src/modes/sequencer.h"
 #include "src/midi/noteoffs.h"
 #include "src/hardware/storage.h"
+#include <avr/eeprom.h> // E2END (core avr shim header) for the EEPROM capacity gate
 #include "src/midi/sysex.h"
 #include "src/hardware/omx_keypad.h"
 #include "src/utils/omx_util.h"
@@ -485,12 +486,83 @@ bool loadHeader(void)
 	return true;
 }
 
+// ---- EEPROM (no FRAM) MidiFX quota region: type table + ArpSave slots ----
+// Type table: groups 0..3 x 8 slots (1B each) at EP_MIDIFX_TYPES_START.
+// Params: the first EP_MIDIFX_ARP_QUOTA ARP slots in chain order (group 0
+// slot 0 .. group 3 slot 7) get their full ArpSave at EP_MIDIFX_PARAMS_START;
+// ARP slots past the quota keep the type byte only (params revert to defaults
+// on load, with a serial notice). All other FX types are type-byte only.
+// Fixed-size region: no chain drift, bounds are compile-time constants.
+void saveMidiFxQuota(void)
+{
+	// type table first: always fully written
+	for (uint8_t g = 0; g < EP_MIDIFX_GROUPS; g++)
+	{
+		subModeMidiFx[g].saveTypesOnly(EP_MIDIFX_TYPES_START + g * NUM_MIDIFX_SLOTS, storage);
+	}
+
+	// parameter quota, chain order, first-come-first-served
+	uint8_t used = 0;
+	for (uint8_t g = 0; g < EP_MIDIFX_GROUPS; g++)
+	{
+		for (uint8_t s = 0; s < NUM_MIDIFX_SLOTS; s++)
+		{
+			if (subModeMidiFx[g].getMidiFXType(s) != MIDIFX_ARP)
+			{
+				continue;
+			}
+
+			if (used >= EP_MIDIFX_ARP_QUOTA)
+			{
+				Serial.println("midifx param quota full: this ARP saves type only");
+				continue;
+			}
+
+			subModeMidiFx[g].saveSlotPayload(s, EP_MIDIFX_PARAMS_START + used * EP_ARP_SAVE_SIZE, storage);
+			used++;
+		}
+	}
+}
+
+void loadMidiFxQuota(void)
+{
+	// restore slot types first so the FX objects exist for payload loading
+	for (uint8_t g = 0; g < EP_MIDIFX_GROUPS; g++)
+	{
+		subModeMidiFx[g].loadTypesOnly(EP_MIDIFX_TYPES_START + g * NUM_MIDIFX_SLOTS, storage);
+	}
+
+	uint8_t used = 0;
+	for (uint8_t g = 0; g < EP_MIDIFX_GROUPS; g++)
+	{
+		for (uint8_t s = 0; s < NUM_MIDIFX_SLOTS; s++)
+		{
+			if (subModeMidiFx[g].getMidiFXType(s) == MIDIFX_ARP && used < EP_MIDIFX_ARP_QUOTA)
+			{
+				subModeMidiFx[g].loadSlotPayload(s, EP_MIDIFX_PARAMS_START + used * EP_ARP_SAVE_SIZE, storage);
+				used++;
+			}
+		}
+	}
+}
+
 void savePatterns(void)
 {
 	bool isEeprom = storage->isEeprom();
 
+	if (isEeprom && storage->capacity() < EP_CHAIN_END)
+	{
+		// Capacity gate: T3.2 (2048B native) and an unpatched T4 (1080B) cannot
+		// hold the 3825B layout: skip pattern persistence entirely (the header
+		// at 0..38 is saved by saveHeader() as usual, well within any capacity).
+		// Checked before the Seq loop so no bytes are burned writing a chain
+		// that loadPatterns() (same gate) would never read back.
+		Serial.println("EEPROM too small for the storage layout (T4.0: E2END patch not applied?) - patterns not saved");
+		return;
+	}
+
 	int patternSize = serializedPatternSize(isEeprom);
-	int nLocalAddress = EEPROM_PATTERN_ADDRESS;
+	int nLocalAddress = isEeprom ? EP_SEQ_START : EEPROM_PATTERN_ADDRESS;
 
 	// Serial.println((String)"Seq patternSize: " + patternSize);
 	int seqPatternNum = isEeprom ? NUM_SEQ_PATTERNS_EEPROM : NUM_SEQ_PATTERNS;
@@ -508,6 +580,47 @@ void savePatterns(void)
 
 	if (isEeprom)
 	{
+		// EEPROM (no FRAM) compact layout: FRAM chain order, reduced fixed counts.
+		// (capacity gate checked at function top)
+
+		// Grids: snapshots 0..3
+#ifdef OMXMODEGRIDS
+		patternSize = OmxModeGrids::serializedPatternSize(isEeprom);
+
+		for (int i = 0; i < EP_GRIDS_COUNT; i++)
+		{
+			auto pattern = (byte *)omxModeGrids.getPattern(i);
+			for (int j = 0; j < patternSize; j++)
+			{
+				storage->write(nLocalAddress + j, *pattern++);
+			}
+
+			nLocalAddress += patternSize;
+		}
+#endif
+
+		// Euclid: save slots 0..3, no cursor byte (the 1B went to the tail marker)
+		nLocalAddress = omxModeEuclid.saveToDisk(nLocalAddress, storage, 0, EP_EUCLID_COUNT, false);
+
+		// Chords: presets 0..1
+		nLocalAddress = omxModeChords.saveToDisk(nLocalAddress, storage, 0, EP_CHORDS_COUNT);
+
+		// Drums: kits 0..3
+		nLocalAddress = omxModeDrum.saveToDisk(nLocalAddress, storage, 0, EP_DRUMS_COUNT);
+
+		// MidiFX: 4 groups x 8 slot type table + 4 ArpSave quota (fixed region)
+		saveMidiFxQuota();
+
+		// tail byte last: marker (lo nibble) proves the full 3825B region
+		// persisted, Euclid selected slot (hi nibble) rides along - see
+		// loadPatterns()
+		storage->write(EP_MARKER_ADDRESS,
+					   (uint8_t)((omxModeEuclid.getSelectedSave() << 4) | EP_MARKER_NIBBLE));
+
+		if (nLocalAddress != EP_MIDIFX_TYPES_START)
+		{
+			Serial.println((String) "EEPROM layout drift: " + nLocalAddress + " != " + EP_MIDIFX_TYPES_START);
+		}
 		return;
 	}
 	Serial.println((String) "nLocalAddress: " + nLocalAddress); // 5784
@@ -576,9 +689,38 @@ void savePatterns(void)
 void loadPatterns(void)
 {
 	bool isEeprom = storage->isEeprom();
+	uint8_t euclidSlot = 0; // EEPROM: restored from the tail byte's hi nibble
+
+	if (isEeprom)
+	{
+		// Capacity gate: T3.2 (2048B native) and an unpatched T4 (1080B) cannot
+		// hold the 3825B layout: skip pattern persistence (the header at 0..38
+		// is loaded by loadHeader() as usual, well within any capacity).
+		if (storage->capacity() < EP_CHAIN_END)
+		{
+			Serial.println("EEPROM too small for the storage layout (T4.0: E2END patch not applied?) - patterns not loaded");
+			return;
+		}
+
+		// Tail byte: the header being valid means data WAS saved, so a missing
+		// marker nibble proves the high-address region stopped persisting since
+		// that save - e.g. the core E2END patch was rolled back by a platform
+		// update, a Teensy 4.1 build flashed on T4.0, or EEPROM wear.
+		// Loading the pattern chain in that state would read silent 0xFF
+		// garbage: keep defaults instead.
+		uint8_t tailByte = storage->read(EP_MARKER_ADDRESS);
+
+		if ((tailByte & EP_MARKER_MASK) != EP_MARKER_NIBBLE)
+		{
+			Serial.println("EEPROM LAYOUT ERROR: marker missing at address 3824 - EEPROM is not 3825B (E2END patch rolled back / wrong board build?) - patterns NOT loaded, defaults in use. Re-apply tools/patch_e2end.py, rebuild, clear_storage, re-save.");
+			return;
+		}
+
+		euclidSlot = constrain(tailByte >> 4, 0, EP_EUCLID_COUNT - 1);
+	}
 
 	int patternSize = serializedPatternSize(isEeprom);
-	int nLocalAddress = EEPROM_PATTERN_ADDRESS;
+	int nLocalAddress = isEeprom ? EP_SEQ_START : EEPROM_PATTERN_ADDRESS;
 
 	Serial.print("Seq patterns - nLocalAddress: ");
 	Serial.println(nLocalAddress);
@@ -601,6 +743,44 @@ void loadPatterns(void)
 
 	if (isEeprom)
 	{
+		// EEPROM (no FRAM) compact layout mirror of savePatterns()
+		// (capacity gate + layout marker already checked at function top)
+
+		// Grids: snapshots 0..3
+#ifdef OMXMODEGRIDS
+		patternSize = OmxModeGrids::serializedPatternSize(isEeprom);
+
+		for (int i = 0; i < EP_GRIDS_COUNT; i++)
+		{
+			auto pattern = grids::SnapShotSettings{};
+			auto current = (byte *)&pattern;
+			for (int j = 0; j < patternSize; j++)
+			{
+				*current = storage->read(nLocalAddress + j);
+				current++;
+			}
+			omxModeGrids.setPattern(i, pattern);
+			nLocalAddress += patternSize;
+		}
+#endif
+
+		// Euclid: save slots 0..3, no cursor byte (loadActivePattern() from 0)
+		nLocalAddress = omxModeEuclid.loadFromDisk(nLocalAddress, storage, 0, EP_EUCLID_COUNT, false);
+
+		// restore the working slot packed into the tail byte
+		if (euclidSlot > 0)
+		{
+			omxModeEuclid.loadActivePattern(euclidSlot);
+		}
+
+		// Chords: presets 0..1
+		nLocalAddress = omxModeChords.loadFromDisk(nLocalAddress, storage, 0, EP_CHORDS_COUNT);
+
+		// Drums: kits 0..3
+		nLocalAddress = omxModeDrum.loadFromDisk(nLocalAddress, storage, 0, EP_DRUMS_COUNT);
+
+		// MidiFX: type table + ArpSave quota
+		loadMidiFxQuota();
 		return;
 	}
 
@@ -674,6 +854,8 @@ void loadPatterns(void)
 	// no arps = 10929, 5 arps = 11129, 25 arps = 12529
 	//
 }
+
+// ---- EEPROM (no FRAM) var region ---- (definitions moved above savePatterns, see L489)
 
 // currently saves everything ( mode + patterns )
 void saveToStorage(void)

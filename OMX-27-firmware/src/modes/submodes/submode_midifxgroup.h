@@ -39,6 +39,13 @@ public:
 	int saveToDisk(int startingAddress, Storage *storage);
 	int loadFromDisk(int startingAddress, Storage *storage);
 
+	// EEPROM (no FRAM) quota helpers: type table + per-slot native payload
+	uint8_t getMidiFXType(uint8_t slot);
+	int saveSlotPayload(uint8_t slot, int startingAddress, Storage *storage);
+	int loadSlotPayload(uint8_t slot, int startingAddress, Storage *storage);
+	int saveTypesOnly(int startingAddress, Storage *storage);
+	int loadTypesOnly(int startingAddress, Storage *storage);
+
 	void toggleArp();
 	void toggleArpHold();
 	bool isArpOn();

@@ -57,8 +57,8 @@ public:
 	void onDisplayUpdate() override;
 	void SetScale(MusicScales *scale);
 
-	int saveToDisk(int startingAddress, Storage *storage);
-	int loadFromDisk(int startingAddress, Storage *storage);
+	int saveToDisk(int startingAddress, Storage *storage, uint8_t presetStart = 0, uint8_t count = NUM_CHORD_SAVES);
+	int loadFromDisk(int startingAddress, Storage *storage, uint8_t presetStart = 0, uint8_t count = NUM_CHORD_SAVES);
 
 private:
 	struct NoteTracker

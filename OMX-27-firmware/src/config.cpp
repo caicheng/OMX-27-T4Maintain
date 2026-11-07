@@ -2,7 +2,7 @@
 #include "consts/consts.h"
 
 const OMXMode DEFAULT_MODE = MODE_MIDI;
-const uint8_t EEPROM_VERSION = 36;
+const uint8_t EEPROM_VERSION = 38;
 
 // v30 - adds storage to header for velocity
 // v31 - adds storage for drums

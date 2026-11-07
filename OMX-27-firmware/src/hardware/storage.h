@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Adafruit_FRAM_I2C.h>
+#include <avr/eeprom.h> // E2END: EEPROM capacity follows the core setting (T4.0: 3825 after the patch script)
 
 enum StorageType
 {
@@ -90,7 +91,7 @@ public:
 	bool isEeprom() override { return true; }
 	void write(size_t address, uint8_t val) override;
 	uint8_t read(size_t address) override;
-	int capacity() override { return 2048; } // 2KB
+	int capacity() override { return E2END + 1; } // T3.2: 2048; T4.0: 1080 default, 3825 after E2END patch
 };
 
 class FRAMStorage : public Storage
