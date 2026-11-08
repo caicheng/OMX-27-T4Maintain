@@ -486,13 +486,15 @@ bool loadHeader(void)
 	return true;
 }
 
-// ---- EEPROM (no FRAM) MidiFX quota region: type table + ArpSave slots ----
+// ---- EEPROM (no FRAM) MidiFX quota region: type table + FX parameter stream ----
 // Type table: groups 0..3 x 8 slots (1B each) at EP_MIDIFX_TYPES_START.
-// Params: the first EP_MIDIFX_ARP_QUOTA ARP slots in chain order (group 0
-// slot 0 .. group 3 slot 7) get their full ArpSave at EP_MIDIFX_PARAMS_START;
-// ARP slots past the quota keep the type byte only (params revert to defaults
-// on load, with a serial notice). All other FX types are type-byte only.
-// Fixed-size region: no chain drift, bounds are compile-time constants.
+// Params: variable-length payloads appended in 4x8 chain order (group 0 slot 0
+// .. group 3 slot 7), each record sized by MidiFXInterface::getSaveSize()
+// (ARP 43 / Harmonizer 9 / Scaler 4 / Transpose/Chord/Repeat/Random/Selector
+// sizeof(its save struct) / Chance + Monophonic 1). A slot whose payload does
+// not fit before EP_MIDIFX_PARAMS_END is dropped (type byte kept, params at
+// defaults) - the scan continues so smaller payloads can still fill the gap.
+// The stream is self-describing: the type table drives the same walk on load.
 void saveMidiFxQuota(void)
 {
 	// type table first: always fully written
@@ -501,47 +503,76 @@ void saveMidiFxQuota(void)
 		subModeMidiFx[g].saveTypesOnly(EP_MIDIFX_TYPES_START + g * NUM_MIDIFX_SLOTS, storage);
 	}
 
-	// parameter quota, chain order, first-come-first-served
-	uint8_t used = 0;
+	// parameter stream, chain order, first-come-first-served
+	int addr = EP_MIDIFX_PARAMS_START;
+	bool quotaFullWarned = false;
+
 	for (uint8_t g = 0; g < EP_MIDIFX_GROUPS; g++)
 	{
 		for (uint8_t s = 0; s < NUM_MIDIFX_SLOTS; s++)
 		{
-			if (subModeMidiFx[g].getMidiFXType(s) != MIDIFX_ARP)
+			if (subModeMidiFx[g].getMidiFXType(s) == MIDIFX_NONE)
 			{
 				continue;
 			}
 
-			if (used >= EP_MIDIFX_ARP_QUOTA)
+			int size = subModeMidiFx[g].getSlotSaveSize(s);
+
+			if (size == 0)
 			{
-				Serial.println("midifx param quota full: this ARP saves type only");
+				continue; // FX without params (Repeat base types etc.): type byte only
+			}
+
+			if (addr + size > EP_MIDIFX_PARAMS_END)
+			{
+				if (!quotaFullWarned)
+				{
+					Serial.println("midifx param quota full: further FX params dropped");
+					quotaFullWarned = true;
+				}
 				continue;
 			}
 
-			subModeMidiFx[g].saveSlotPayload(s, EP_MIDIFX_PARAMS_START + used * EP_ARP_SAVE_SIZE, storage);
-			used++;
+			subModeMidiFx[g].saveSlotPayload(s, addr, storage);
+			addr += size;
 		}
 	}
 }
 
 void loadMidiFxQuota(void)
 {
-	// restore slot types first so the FX objects exist for payload loading
+	// restore slot types first: the FX objects (and their sizes) exist for the stream replay
 	for (uint8_t g = 0; g < EP_MIDIFX_GROUPS; g++)
 	{
 		subModeMidiFx[g].loadTypesOnly(EP_MIDIFX_TYPES_START + g * NUM_MIDIFX_SLOTS, storage);
 	}
 
-	uint8_t used = 0;
+	int addr = EP_MIDIFX_PARAMS_START;
+
 	for (uint8_t g = 0; g < EP_MIDIFX_GROUPS; g++)
 	{
 		for (uint8_t s = 0; s < NUM_MIDIFX_SLOTS; s++)
 		{
-			if (subModeMidiFx[g].getMidiFXType(s) == MIDIFX_ARP && used < EP_MIDIFX_ARP_QUOTA)
+			if (subModeMidiFx[g].getMidiFXType(s) == MIDIFX_NONE)
 			{
-				subModeMidiFx[g].loadSlotPayload(s, EP_MIDIFX_PARAMS_START + used * EP_ARP_SAVE_SIZE, storage);
-				used++;
+				continue;
 			}
+
+			int size = subModeMidiFx[g].getSlotSaveSize(s);
+
+			if (size == 0)
+			{
+				continue;
+			}
+
+			// identical walk as saveMidiFxQuota: same slots, same sizes, same boundary
+			if (addr + size > EP_MIDIFX_PARAMS_END)
+			{
+				continue;
+			}
+
+			subModeMidiFx[g].loadSlotPayload(s, addr, storage);
+			addr += size;
 		}
 	}
 }
@@ -716,7 +747,9 @@ void loadPatterns(void)
 			return;
 		}
 
-		euclidSlot = constrain(tailByte >> 4, 0, EP_EUCLID_COUNT - 1);
+		// working slot: full 4-bit range 0..15 (content persists only for the
+		// 4 chain slots; landing on 4..15 shows that slot's default content)
+		euclidSlot = constrain(tailByte >> 4, 0, OmxModeEuclidean::kNumSaves - 1);
 	}
 
 	int patternSize = serializedPatternSize(isEeprom);

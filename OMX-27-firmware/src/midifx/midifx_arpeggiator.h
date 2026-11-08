@@ -93,6 +93,7 @@ namespace midifx
 		// MidiFXNoteFunction getInputFunc() override;
 
 		int saveToDisk(int startingAddress, Storage *storage) override;
+		int getSaveSize() override { return sizeof(ArpSave); }
 		int loadFromDisk(int startingAddress, Storage *storage) override;
 
 		// Toggles between off and previous mode

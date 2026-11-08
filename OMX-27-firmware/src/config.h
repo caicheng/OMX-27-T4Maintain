@@ -96,8 +96,11 @@ extern const uint8_t EEPROM_VERSION;
 //   2460..3099 2x Chords presets (16 keys x 20B each)
 //   3100..3619 4x Drum kits (130B each)
 //   3620..3651 MidiFX type table: 4 groups x 8 slots (1B each)
-//   3652..3823 ArpSave quota: first 4 ARP slots in chain order (43B each);
-//              further ARP slots save their type byte only (params at defaults)
+//   3652..3823 FX parameter stream: payloads appended in 4x8 chain order
+//              (group 0 slot 0 .. group 3 slot 7), each record's size from
+//              MidiFXInterface::getSaveSize(); slots that do not fit are
+//              dropped (type byte kept, params at defaults). Self-describing:
+//              the type table replays the same stream on load.
 //   3824       tail byte (packed):
 //              lo nibble = layout marker 0xA, written last by savePatterns(),
 //                verified every boot. A missing marker on an EEPROM that holds
@@ -106,8 +109,9 @@ extern const uint8_t EEPROM_VERSION;
 //                writes to high addresses get silently swallowed by the core
 //                (reads return 0xFF, whose lo nibble 0xF always fails).
 //              hi nibble = Euclid selected slot (0..15): the FRAM-era cursor
-//                byte packed into the marker's spare bits; clamped to 0..3 on
-//                load, only read after the marker check passes.
+//                byte packed into the marker's spare bits. Full range restores
+//                (content persists only for chain slots 0..3; slots 4..15 land
+//                with default content). Only read after the marker check passes.
 #define EP_HEADER_END 39
 #define EP_SEQ_START 64 // == EEPROM_PATTERN_ADDRESS (FRAM chain start)
 #define EP_SEQ_COUNT 6
@@ -126,8 +130,7 @@ extern const uint8_t EEPROM_VERSION;
 #define EP_MIDIFX_TYPES_START 3620
 #define EP_MIDIFX_GROUPS 4 // groups 0..3 saved; group 4 is FRAM-only
 #define EP_MIDIFX_PARAMS_START 3652
-#define EP_ARP_SAVE_SIZE 43
-#define EP_MIDIFX_ARP_QUOTA 4
+#define EP_MIDIFX_PARAMS_END 3824 // exclusive: the tail byte owns 3824
 #define EP_MARKER_ADDRESS 3824
 #define EP_MARKER_NIBBLE 0x0A
 #define EP_MARKER_MASK 0x0F

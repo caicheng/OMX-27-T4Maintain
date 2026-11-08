@@ -25,6 +25,7 @@ namespace midifx
 		// MidiFXNoteFunction getInputFunc() override;
 
 		int saveToDisk(int startingAddress, Storage *storage) override;
+		int getSaveSize() override { return 1; } // chancePerc_
 		int loadFromDisk(int startingAddress, Storage *storage) override;
 
 	protected:

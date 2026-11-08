@@ -116,6 +116,10 @@ namespace midifx
 		virtual int saveToDisk(int startingAddress, Storage *storage);
 		virtual int loadFromDisk(int startingAddress, Storage *storage);
 
+		// exact payload size written by saveToDisk (0 = no payload):
+		// lets the EEPROM quota stream check remaining space BEFORE writing
+		virtual int getSaveSize() { return 0; }
+
 		// // the function using the function pointers:
 		// void somefunction(void (*fptr)(void *, int, int), void *context)
 		// {

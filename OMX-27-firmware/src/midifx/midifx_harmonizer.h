@@ -24,6 +24,7 @@ namespace midifx
 		void noteInput(MidiNoteGroup note) override;
 
 		int saveToDisk(int startingAddress, Storage *storage) override;
+		int getSaveSize() override { return 9; } // chance/playOrigin + 7 notes
 		int loadFromDisk(int startingAddress, Storage *storage) override;
 
 	protected:

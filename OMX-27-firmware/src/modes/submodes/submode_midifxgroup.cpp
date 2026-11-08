@@ -1633,6 +1633,20 @@ uint8_t SubModeMidiFxGroup::getMidiFXType(uint8_t slot)
 	return midifxTypes_[slot];
 }
 
+// payload size of one slot's FX (0 = empty slot / no payload):
+// lets the quota stream decide BEFORE writing (no torn records at the boundary)
+int SubModeMidiFxGroup::getSlotSaveSize(uint8_t slot)
+{
+	MidiFXInterface *mFX = getMidiFX(slot);
+
+	if (mFX == nullptr)
+	{
+		return 0;
+	}
+
+	return mFX->getSaveSize();
+}
+
 // EEPROM quota: native payload of one slot ONLY (no type byte - the type
 // table at EP_MIDIFX_TYPES_START carries the slot types)
 int SubModeMidiFxGroup::saveSlotPayload(uint8_t slot, int startingAddress, Storage *storage)

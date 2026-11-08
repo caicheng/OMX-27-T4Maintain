@@ -24,6 +24,7 @@ namespace midifx
 		void noteInput(MidiNoteGroup note) override;
 
 		int saveToDisk(int startingAddress, Storage *storage) override;
+		int getSaveSize() override { return sizeof(RandomSave); }
 		int loadFromDisk(int startingAddress, Storage *storage) override;
 
 
